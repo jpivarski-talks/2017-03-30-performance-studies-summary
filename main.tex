@@ -38,7 +38,7 @@ Figure~\ref{root4j_reading_tracks} shows the reading rate as nanoseconds per tra
 
 These files were also pre-read before measuring any data, so that they would be in Linux's memory cache, effectively removing the physical bottleneck of disk access and ensuring that neither software product is unfairly discounted because of this large bottleneck.
 
-Both C++ and Java readers are deserializing and decompressing (zip) the same bytes. The C++ ROOT version is 6.08/04 (pre-built binary for Ubuntu Linux). The root4j version is 0.1-pre2; spark-root and Spark were {\it not} involved in this test (which would complicate matters, due to caching). Both have been executed in a single process, single thread.
+Both C++ and Java readers are deserializing and decompressing (deflate) the same bytes. The C++ ROOT version is 6.08/04 (pre-built binary for Ubuntu Linux). The root4j version is 0.1-pre2; spark-root and Spark were {\it not} involved in this test (which would complicate matters, due to caching). Both have been executed in a single process, single thread.
 
 In the plot, we see that standard C++ ROOT is consistently faster than root4j. We also see that, unlike C++, root4j starts slow and accelerates. We see the HotSpot optimization phase as a spike (temporary slow-down) at the beginning of reading, a spike when opening each file, and a single spike in the middle of one file read. Spikes like these appear at different times in different runs, so they are likely garbage collector pauses.
 
@@ -79,15 +79,150 @@ The CMSSW reader uses version {\tt 8\_0\_25} of the CMSSW software with a custom
 
 (Experiment frameworks like CMSSW were also designed for event reconstruction, which requires many more attributes per particle and has a performance that is closer to optimal.)
 
-The {\tt TTree::Draw} function was designed to plot small numbers of branches, so it does not load unnecessary attributes. Similarly, Femtocode is primarily intended for plotting, so its specialized reader calls a similar set of functions as {\tt TTree::Draw}. In most cases, their results are within a factor of 2 of each other, though the muon comparison is a factor of 50. (This has been reported to the ROOT team; they are investigating.)
+The {\tt TTree::Draw} function was designed to plot small numbers of branches, so it does not load unnecessary attributes. Similarly, Femtocode is primarily intended for plotting, so its specialized reader calls a similar set of functions as {\tt TTree::Draw}. In most cases, their results are within a factor of 2 of each other, though the muon comparison is a factor of 50. (This has been reported to the ROOT team; they are investigating.) The factor of 2 can be expected, since {\tt TTree::Draw} is additionally invoking an interpreter to generate a plot, unlike the other readers, which simply add up $p_T$ values (to ensure that it is not eliminated by the compiler).
 
 All tests were single-process, single-thread, reading the same input file that was pre-loaded into Linux cache by previous reads. The {\tt TTree::Draw} tests were rotated in order and the first call was discarded, since {\tt TTree::Draw} does some initialization the first time it is called.
 
+In addition to comparing these three ways of calling ROOT routines to read ROOT files, we tested the time required to read a flat array of the same size from a Numpy file. Numpy files have a very simple format: the contiguous array is compressed (deflate, same as ROOT) and written to disk as-is (with a small header). The Femtocode ROOT reader was only 5\% slower than reading the equivalent data from Numpy files, which suggests that the procedure is near optimal.
+
 \section*{Memory bandwidth: conventional vs GPU vs KNL}
 
+Because of the high cost of loading data into memory, Spark and Femtocode cache that data for subsequent computations. This fits the work-pattern of data analysis, in which a computation is often repeated with subtle variations as part of exploratory data analysis or systematics studies. Assuming that the whole dataset can be loaded, all but the first pass benefit from the cache, often by orders of magnitude (100--1000$\times$).
+
+At these high rates, the bottleneck shifts from disk or network to the DRAM memory. For a sample plotting problem, we performed a simple operation (addition) on 10 billion double-precision floating point numbers. We arrived at this figure because 100 million events is typical of a high energy physics dataset (all $t\bar{t}$ data collected by CMS since its inception is 100~fb$^{-1}$ $\times$ 1~nb = 100 million events) and the plotting code may need to access 100 values per event (hundreds of tracks or combinations of attributes). This is 80~GB of in-memory data to be evaluated while the user waits.
+
+The throughput from DRAM to CPU back to DRAM is highly affected by compiler optimizations, which target this specific problem. Compiling the same loop with {\tt -O0} and {\tt -O3} yields 70~seconds and 13~seconds to process the same data, respectively. (Test performed in a single process, single thread.)
+
+The plotting problem is embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 13~seconds by a factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and one Knight's Landing (KNL) chip. The GPU results are summarized in Table~\ref{gpu-results}: some GPU models have faster memory, some have faster computation, and others are embedded in an architecture with a faster connection to main memory. However, on a given architecture, the DRAM-to-CPU and DRAM-to-GPU speeds were generally the same.
+
+\begin{table}
+\caption{\label{gpu-results} }
+
+\begin{center}
+%% \begin{tabular}{l c c c c c c}
+%%                   &  GeForce          & GRID               & Tesla             & Tesla              & Tesla                  & Tesla                  \\
+%%                   &          GTX      &      K520          &       K40c        &       K20Xm        &       K20m             &       P100-SXM2        \\
+%%                   &              660M &           (Amazon) &            (CERN) &             (CERN) &            (Princeton) &                 (CERN) \\
+%% Data transfers:   &                   &                    &                   &                    &                        &                        \\\hline
+%% DRAM to {\it CPU} & 18.6 ms/GB        & 
+%% DRAM to GPU       & 19.8              &
+%% GPU to DRAM       & 19.8              &
+%% CPU write unified & 14.5              &
+%% CPU read unified  & 14.5              &
+%% within GPU        &  4.8              &
+%% Calculations:     &                   &                    &                   &                    &                        &                        \\\hline
+%% in-place global   &  8.4              &
+%% immutable global  &  8.1              &
+%% in-place unified  & 12.8              &
+%% immutable unified & 11.5              &
+%% \end{tabular}
+\end{center}
+\end{table}
+
+%% 	GRID K520 (Amazon)	Tesla K40c (CERN)	Tesla K20Xm (CERN)	Tesla K20m (Princeton)	Tesla P100-SXM2 (CERN)	Ratio K20m/P100
+%% Data transfers (ms for 1 GB):						
+%% Host-to-host copy (no GPU)          	21.71 & 43.43 & 43.40	40.96	9.71	4.2
+%% Host-to-device copy             	34.56 & 41.11 & 66.12	38.68	9.92	3.9
+%% Device-to-host copy            	34.07 & 68.24 & 44.17	65.27	18.18	3.6
+%% Host write to unified memory     	21.87 & 40.95 & 67.66	38.49	9.41	4.1
+%% Host read from unified memory	22.36 & 70.27 & 72.30	67.34	16.33	4.1
+%% Device-to-device copy one GPU)	 2.21 &  1.42 &  1.42	1.78	0.59	3.0
+%% Calculations (ms for 1 GB):						
+%% In-place operation - x, float32)	 2.45 &  1.57 &  1.59	1.99	0.59	3.3
+%% Immutable operatio - x, float32)	 2.35 &  1.56 &  1.58	1.98	0.59	3.4
+%% In-place operation on unified memory	15.09 & 13.02 & 20.75	23.37	4.73	4.9
+%% Immutable on unified memory    	14.02 & 11.42 & 11.65	21.72	4.03	5.4
 
 
+%% Device at 0:
+%%     name: 
+%%     totalGlobalMem: 1.95135 GB
+%%     sharedMemPerBlock: 48 kB
+%%     regsPerBlock: 65536
+%%     warpSize: 32
+%%     memPitch: 2 GB
+%%     maxThreadsPerBlock: 1024
+%%     maxThreadsDim: 1024 1024 64 
+%%     maxGridSize: 2147483647 65535 65535 
+%%     totalConstMem: 64 kB
+%%     version: 3.0
+%%     clockRate: 950 MHz
+%%     textureAlignment: 512
+%%     deviceOverlap: true
+%%     multiProcessorCount: 2
+%%     kernelExecTimeoutEnabled: false
+%%     integrated: false
+%%     canMapHostMemory: true
+%%     computeMode: cudaComputeModeDefault
+%%     concurrentKernels: true
+%%     ECCEnabled: false
+%%     pciBusID: 1
+%%     pciDeviceID: 0
+%%     tccDriver: false
 
+%% 1 GB host -> host: 39.125 ms
+%% 1 GB host -> host: 19.982 ms
+%% 1 GB host -> host: 19.21 ms
+%% 1 GB host -> host: 18.724 ms
+%% 1 GB host -> host: 18.611 ms
+%% check 0.178395 0.399677 0.166599
+%% 1 GB host -> device: 20.019 ms
+%% 1 GB host -> device: 19.91 ms
+%% 1 GB host -> device: 19.84 ms
+%% 1 GB host -> device: 19.89 ms
+%% 1 GB host -> device: 19.882 ms
+%% 1 GB device in-place operation: 8.413 ms
+%% 1 GB device in-place operation: 8.404 ms
+%% 1 GB device in-place operation: 8.403 ms
+%% 1 GB device in-place operation: 8.405 ms
+%% 1 GB device in-place operation: 8.407 ms
+%% 1 GB device immutable operation: 7.993 ms
+%% 1 GB device immutable operation: 8.064 ms
+%% 1 GB device immutable operation: 8.102 ms
+%% 1 GB device immutable operation: 8.074 ms
+%% 1 GB device immutable operation: 8.164 ms
+%% 1 GB device const immutable operation: 8.138 ms
+%% 1 GB device const immutable operation: 8.157 ms
+%% 1 GB device const immutable operation: 8.14 ms
+%% 1 GB device const immutable operation: 8.108 ms
+%% 1 GB device const immutable operation: 8.068 ms
+%% 1 GB device -> host: 19.639 ms
+%% 1 GB device -> host: 20.215 ms
+%% 1 GB device -> host: 19.942 ms
+%% 1 GB device -> host: 19.895 ms
+%% 1 GB device -> host: 19.883 ms
+%% check 0.821605 0.600323 0.833401
+%% 1 GB host -> pinned: 14.521 ms
+%% 1 GB host -> pinned: 15.759 ms
+%% 1 GB host -> pinned: 14.868 ms
+%% 1 GB host -> pinned: 14.444 ms
+%% 1 GB host -> pinned: 14.459 ms
+%% 1 GB device in-place operation: 13.111 ms
+%% 1 GB device in-place operation: 12.858 ms
+%% 1 GB device in-place operation: 12.82 ms
+%% 1 GB device in-place operation: 12.895 ms
+%% 1 GB device in-place operation: 13.192 ms
+%% 1 GB device immutable operation: 11.851 ms
+%% 1 GB device immutable operation: 12.297 ms
+%% 1 GB device immutable operation: 11.521 ms
+%% 1 GB device immutable operation: 11.57 ms
+%% 1 GB device immutable operation: 11.509 ms
+%% 1 GB device const immutable operation: 11.5 ms
+%% 1 GB device const immutable operation: 12.468 ms
+%% 1 GB device const immutable operation: 11.549 ms
+%% 1 GB device const immutable operation: 12.297 ms
+%% 1 GB device const immutable operation: 12.189 ms
+%% 1 GB pinned -> host: 14.434 ms
+%% 1 GB pinned -> host: 15.915 ms
+%% 1 GB pinned -> host: 15.032 ms
+%% 1 GB pinned -> host: 14.492 ms
+%% 1 GB pinned -> host: 14.516 ms
+%% check 0.178395 0.399677 0.166599
+%% 1 GB device -> device: 5.058 ms
+%% 1 GB device -> device: 4.831 ms
+%% 1 GB device -> device: 4.829 ms
+%% 1 GB device -> device: 4.829 ms
+%% 1 GB device -> device: 4.831 ms
 
 
 
