@@ -191,7 +191,7 @@ In this section, we described several quantitative analyses performed as part of
 
 C++ ROOT remains the fastest way to read ROOT files, though it depends on how this library is used. In our application of extracting only one or a few attributes of each particle for plotting, we can pull data from the file at a rate of about a MHz per thread. Java is 4 times slower, but it brings the benefit of providing access to ``big data'' and machine learning tools like Apache Spark.
 
-Using (one might say ``misusing'') a collaboration's framework like CMSSW for the purpose of extracting only one attribute per particle is three orders of magnitude slower: about a kHz. This is primarily because CMSSW loads all attributes per particle (they are needed for the usual application of event reconstruction) but partly because CMSSW creates and destroys C++ objects in non-contiguous memory for the convenience of the user.
+Using (one might say ``misusing'') a collaboration's framework like CMSSW for the purpose of extracting only one attribute per particle is three orders of magnitude slower: about a kHz. This is primarily because CMSSW loads all attributes per particle (which are needed for the usual application of event reconstruction) but partly because CMSSW creates and destroys C++ objects in non-contiguous memory for the convenience of the user.
 
 The MHz rate of {\tt TTree::Draw} and the Femtocode ROOT reader is nearly identical to the rate of reading numbers from a Numpy file, which has minimal overhead. Therefore, this MHz rate is probably close to the maximum possible.
 
