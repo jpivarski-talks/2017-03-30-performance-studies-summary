@@ -89,7 +89,7 @@ In addition to comparing these three ways of calling ROOT routines to read ROOT 
 
 \subsection*{Memory bandwidth: conventional vs GPU vs KNL}
 
-Because of the high cost of loading data into memory, Spark and Femtocode cache that data for subsequent computations. This fits the work-pattern of most data analysis, in which a computation is repeated with subtle variations as part of exploratory data analysis, systematics studies, or machine learning iterations. Assuming that the whole dataset can be loaded into memory, all but the first pass benefits from the cache, often by orders of magnitude (100--1000$\times$).
+Because of the high cost of loading data into memory, Spark and Femtocode cache data for subsequent computations. This fits the work-pattern of most data analysis, in which a computation is repeated with subtle variations as part of exploratory data analysis, systematics studies, or machine learning iterations. Assuming that the whole dataset can be loaded into memory, all but the first pass benefits from the cache, often by orders of magnitude (100--1000$\times$).
 
 At these high rates, the bottleneck shifts from disk or network access to DRAM memory access. To similate a low-arithmetic intensity plotting problem, we performed a simple addition by a constant on 10 billion double-precision floating point numbers. The motivation for this order of magnitude comes from an assumption of 100 million events (e.g.\ all $t\bar{t}$ data collected by CMS since its inception) accessing about 100 values per event (hundreds of tracks or combinations of a few different attributes). In total, this amounts to 80~GB of in-memory data to be evaluated while the user waits.
 
