@@ -91,9 +91,21 @@ Because of the high cost of loading data into memory, Spark and Femtocode cache 
 
 At these high rates, the bottleneck shifts from disk or network to the DRAM memory. For a sample plotting problem, we performed a simple operation (addition) on 10 billion double-precision floating point numbers. We arrived at this figure because 100 million events is typical of a high energy physics dataset (all $t\bar{t}$ data collected by CMS since its inception is 100~fb$^{-1}$ $\times$ 1~nb = 100 million events) and the plotting code may need to access 100 values per event (hundreds of tracks or combinations of attributes). This is 80~GB of in-memory data to be evaluated while the user waits.
 
-The throughput from DRAM to CPU back to DRAM is highly affected by compiler optimizations, which target this specific problem. Compiling the same loop with {\tt -O0} and {\tt -O3} yields 70~seconds and 13~seconds to process the same data, respectively. (Test performed in a single process, single thread.)
+The throughput from DRAM to CPU back to DRAM is highly affected by compiler optimizations, which target this specific problem. In a single process, single thread, the following times are required to either add values to the array in-place or add them and store them elsewhere (``immutable'' operation):
 
-The plotting problem is embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 13~seconds by a factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and one Knight's Landing (KNL) chip. The GPU results are summarized in Table~\ref{gpu-results}: some GPU models have faster memory, some have faster computation, and others are embedded in an architecture with a faster connection to main memory. However, on most architectures, the time required to copy data from DRAM to the GPU was equal to the time required to copy data from DRAM to the CPU: the GPU could be regarded as just as ``distant'' from main memory as the CPU. (Biggest deviation: 60\% slower for GPU.)
+\begin{center}
+\begin{tabular}{r | c c}
+           & with {\tt -O0} & with {\tt -O1} & with {\tt -O2} & with {\tt -O3} \\\hline
+in-place   & 87.8~sec       & 27.2           & 27.1           & 25.6~sec       \\
+immutable  & 91.2~sec       & 38.7           & 39.2           & 39.2~sec       \\
+\end{tabular}
+\end{center}
+
+Without compiler optimizations, the in-place and immutable times are nearly the same, even though the first accesses one memory location and the second accesses two. With optimizations, both operations are faster, but the one with fewer memory accesses is more so. These optimizations involve such things as loop unrolling, which hide the latency of reading from memory. Automatic vectorization, which is a potential optimization unrelated to memory access, is only applied in {\tt -O3}, and we don't see the effect here.
+
+Plotting problems are embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 25 or 40~seconds by a large factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and one Knight's Landing (KNL) chip.
+
+The GPU results are summarized in Table~\ref{gpu-results}: some GPU models have faster memory, some have faster computation, and others are embedded in an architecture with a faster connection to main memory. However, on most architectures, the time required to copy data from DRAM to the GPU was equal to the time required to copy data from DRAM to the CPU: the GPU could be regarded as just as ``distant'' from main memory as the CPU. (Biggest deviation: 60\% slower for GPU.)
 
 \begin{table}
 \caption{\label{gpu-results} GHz rates}
@@ -122,7 +134,7 @@ immutable unified & 2.91778 2.39333 2.93822 2.88021 1.54486 8.32616
 
 
 
-%% milliseconds for 1 GB
+%% milliseconds for 1 GB, but times (ms) are underestimated by a factor of 8
 %% DRAM to {\it CPU} & 18.6     &    21.71 &  43.43 &  43.40 &       40.96 &      9.71 \\
 %% DRAM to GPU       & 19.8     &    34.56 &  41.11 &  66.12 &       38.68 &      9.92 \\
 %% GPU to DRAM       & 19.8     &    34.07 &  68.24 &  44.17 &       65.27 &     18.18 \\
