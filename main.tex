@@ -195,7 +195,7 @@ Using (one might say ``misusing'') a collaboration's framework like CMSSW for th
 
 The MHz rate of {\tt TTree::Draw} and the Femtocode ROOT reader is nearly identical to the rate of reading numbers from a Numpy file, which has minimal overhead. Therefore, this MHz rate is probably close to the maximum possible.
 
-If the input data are in a memory cache, however, rates of a quarter GHz per thread are possible (almost three orders of magnitude faster). Adding non-interacting threads allows us to scale up to 2~GHz before running into memory bandwidth limits of a conventional memory bus. However, using local memory attached to a KNL or GPU device breaks through this limit, allowing up to 8~GHz on a KNL and 57~GHz on a high-end GPU.
+If the input data are in a memory cache, however, rates of a quarter GHz per thread are possible (almost three orders of magnitude faster). Adding non-interacting threads allows us to scale up to 2~GHz before running into memory bandwidth limits of a conventional memory bus. However, using local memory attached to a KNL or GPU device breaks through this limit, allowing up to 8~GHz on a KNL and 57~GHz on a high-end GPU (though not all parts of the problem can be ported to the GPU).
 
 Amusingly, these event-processing rates even exceed the collision rate in the LHC, though this numerology is coincidental. Collision events are highly filtered, and we need a system to process years of collected data in seconds if it is to serve for real-time data analysis.
 
