@@ -169,7 +169,7 @@ Given the embarrassingly parallel nature of the problem, we would na\"ively expe
 
 To prove this conjecture, we obtained access to a Knight's Landing (KNL) architecture at Princeton. KNL has one feature in common with GPUs: small groups of CPU cores have a local pool of memory called MCDRAM, which is a rough equivalent of a GPU's global memory (in size, granularity, and distance from the processing unit). If the 2~GHz scaling limit is due to memory bus contention, moving data to a KNL's MCDRAM would reduce that contention and allow higher scaling.
 
-Figure~\ref{knl-scaling} shows that the conjecture was right: switching from a conventional architecture to KNL does not, by itself, break the 2~GHz limit, but allocating memory on the MCDRAM does. In fact, scaling on a single KNL machine reaches 8~GHz with 128 cores, twice the number of physical cores (though it drops precipitously beyond that).
+Figure~\ref{knl-scaling} shows that the conjecture was right: switching from a conventional architecture to KNL does not, by itself, break the 2~GHz limit, but allocating memory on the MCDRAM does. In fact, scaling on a single KNL machine reaches 8~GHz with 128 processes, twice the number of physical cores (though it drops precipitously beyond that).
 
 \begin{figure}[t]
 \begin{center}
