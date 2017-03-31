@@ -105,7 +105,7 @@ immutable  & 91.2~sec       & 38.7~sec       & 39.2~sec       & 39.2~sec       \
 
 Without compiler optimizations, the in-place and immutable times are nearly the same, even though the first accesses one memory location and the second accesses two. With optimizations, both operations are faster, but the one with fewer memory accesses is more so. These optimizations involve such things as loop unrolling, which hide the latency of memory access and encourage CPU prefetching. Automatic vectorization, which is a potential optimization unrelated to memory access, is only applied in {\tt -O3}, and we don't see that effect here.
 
-Plotting problems are embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 25 or 40~seconds by a large factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and a Knight's Landing (KNL) chip.
+Plotting problems are embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 25 or 40~seconds by a large factor of $N$. However, we also want to see if specialized hardware could be beneficial. We performed the same simple operation on several different GPUs and a Knight's Landing (KNL) chip.
 
 The GPU results are summarized in Table~\ref{gpu-results}. For comparison, the single-threaded CPU rates are 0.39~GHz (in-place) and 0.26~GHz (immutable) while fully vectorized GPU rates range from 4.0~GHz to 56.9~GHz for laptop/gaming GPUs (GeForce GTX) to high-end supercomputing GPUs (Tesla P100).
 
