@@ -58,7 +58,7 @@ Femtocode, on the other hand, is a high level language that gets JIT-compiled to
 
 Femtocode's strategy is similar to {\tt TTree::Draw}, a special-purpose function for aggregating data into histograms (and immediately drawing them). Femtocode and {\tt TTree::Draw} differ in that Femtocode is JIT-compiled and more general, but the similarities are close enough that a comparison to {\tt TTree::Draw} is interesting.
 
-Table~\ref{cmssw-table} compares the file-reading performance of CMSSW, {\tt TTree::Draw}, and a ROOT-reading routine designed for Femtocode. This specialized reader uses the ROOT libraries, but avoids function calls that would reconstruct C++ objects from the data, as an ordinary user would want. We thank Philippe Canal for his help in writing this routine.
+Table~\ref{cmssw-table} compares the file-reading performance of CMSSW, {\tt TTree::Draw}, and a ROOT-reading routine designed for Femtocode. This specialized reader uses the ROOT libraries, but avoids function calls that would reconstruct C++ objects from the data, as an ordinary user would want. (This routine was also used in the previous subsection, as the C++ comparison to Java.) We thank Philippe Canal for his help in writing it.
 
 \begin{table}[t]
 \caption{\label{cmssw-table} File-reading rates in events per millisecond per process (kHz per process). In each case, the goal was only to access the $p_T$ (or $E_T$) attribute of each particle, though CMSSW loads all attributes associated with the particle.}
