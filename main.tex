@@ -6,7 +6,9 @@
 
 \begin{document}
 
-\section*{Introduction}
+\section*{Throughput studies for data analysis applications}
+
+\subsection*{Introduction}
 
 High-speed data throughput is a requirement for most high energy physics software. Whether improving old software or developing new software, we must keep an eye on this aspect of its performance.
 
@@ -20,7 +22,7 @@ We will therefore focus on the first two bottlenecks only: load-to-memory and me
 
 Code for all of these tests can be found in the {\tt diana-hep/femtocode-metrics} GitHub repository\footnote{\url{https://github.com/diana-hep/femtocode-metrics}}.
 
-\section*{ROOT file reading: Java vs optimized C++}
+\subsection*{ROOT file reading: Java vs optimized C++}
 
 The root4j library is a pure-Java implementation of ROOT file reading. This has technical advantages over alternatives that would call the standard C++ implementation of ROOT (JNI, UNIX pipes, or sockets): root4j is easy to install as a JAR from Maven Central and is free of several classes of bugs, including segmentation faults and failures in interprocess communication. It does, however, have the potential to be slower than the C++ implementation, since Java is a virtual machine with garbage collection.
 
@@ -28,7 +30,7 @@ Early in the development process, the read performance of root4j and C++ ROOT wa
 
 Figure~\ref{root4j_reading_tracks} shows the reading rate as nanoseconds per track (left axis) and, equivalently, as megabytes per second for the {\it decompressed} data (right axis), measured every 100,000 tracks. Measuring this rate as a function of time is important because Java does HotSpot optimization at the beginning of the run, sacrificing start-up latency for long-term throughput.
 
-\begin{figure}
+\begin{figure}[t]
 \begin{center}
 \includegraphics[width=0.8\linewidth]{root4j_reading_tracks.png}
 \end{center}
@@ -46,7 +48,7 @@ However, the asymptotic speed of root4j, which is all that matters for large fil
 
 More recent performance benchmarks are in development, using Spark's built-in performance counters\footnote{\href{https://github.com/diana-hep/spark-root/blob/master/md/PerformanceBenchmarksPublicDS.md}{\tt https://github.com/diana-hep/spark-root/blob/master/md/PerformanceBenchmarksPublicDS.md}}.
 
-\section*{ROOT file reading: CMSSW vs optimized C++}
+\subsection*{ROOT file reading: CMSSW vs optimized C++}
 
 The second test of ROOT file reading was motivated by Femtocode, which takes advantage of ROOT's columnar data representation on disk to perform calculations in the same format in memory, without reconstructing objects. This is in contrast to a traditional framework for analyzing physics data, such as CMSSW.
 
@@ -58,7 +60,7 @@ Femtocode's strategy is similar to {\tt TTree::Draw}, a special-purpose function
 
 Table~\ref{cmssw-table} compares the file-reading performance of CMSSW, {\tt TTree::Draw}, and a ROOT-reading routine designed for Femtocode. This specialized reader uses the ROOT libraries, but avoids function calls that would reconstruct C++ objects from the data, as an ordinary user would want. We thank Philippe Canal for his help in writing this routine.
 
-\begin{table}
+\begin{table}[t]
 \caption{\label{cmssw-table} File-reading rates in events per millisecond per process (kHz per process). In each case, the goal was only to access the $p_T$ (or $E_T$) attribute of each particle, though CMSSW loads all attributes associated with the particle.}
 
 \begin{center}
@@ -85,7 +87,7 @@ All tests were single-process, single-thread, reading the same input file that w
 
 In addition to comparing these three ways of calling ROOT routines to read ROOT files, we tested the time required to read a flat array of the same size from a Numpy file. Numpy files have a very simple format: the contiguous array is compressed (deflate, same as ROOT) and written to disk as-is (with a small header). The Femtocode ROOT reader was only 5\% slower than reading the equivalent data from Numpy files, which suggests that the procedure is near optimal.
 
-\section*{Memory bandwidth: conventional vs GPU vs KNL}
+\subsection*{Memory bandwidth: conventional vs GPU vs KNL}
 
 Because of the high cost of loading data into memory, Spark and Femtocode cache that data for subsequent computations. This fits the work-pattern of data analysis, in which a computation is often repeated with subtle variations as part of exploratory data analysis or systematics studies. Assuming that the whole dataset can be loaded, all but the first pass benefit from the cache, often by orders of magnitude (100--1000$\times$).
 
@@ -94,7 +96,7 @@ At these high rates, the bottleneck shifts from disk or network to the DRAM memo
 The throughput from DRAM to CPU back to DRAM is highly affected by compiler optimizations, which target this specific problem. In a single process, single thread, the following times are required to either add values to the array in-place or add them and store them elsewhere (``immutable'' operation):
 
 \begin{center}
-\begin{tabular}{r | c c}
+\begin{tabular}{r | c c c c}
            & with {\tt -O0} & with {\tt -O1} & with {\tt -O2} & with {\tt -O3} \\\hline
 in-place   & 87.8~sec       & 27.2           & 27.1           & 25.6~sec       \\
 immutable  & 91.2~sec       & 38.7           & 39.2           & 39.2~sec       \\
@@ -105,166 +107,96 @@ Without compiler optimizations, the in-place and immutable times are nearly the 
 
 Plotting problems are embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 25 or 40~seconds by a large factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and one Knight's Landing (KNL) chip.
 
-The GPU results are summarized in Table~\ref{gpu-results}: some GPU models have faster memory, some have faster computation, and others are embedded in an architecture with a faster connection to main memory. However, on most architectures, the time required to copy data from DRAM to the GPU was equal to the time required to copy data from DRAM to the CPU: the GPU could be regarded as just as ``distant'' from main memory as the CPU. (Biggest deviation: 60\% slower for GPU.)
+The GPU results are summarized in Table~\ref{gpu-results}. For comparison, the single-threaded CPU rates are 0.39~GHz (in-place) and 0.26~GHz (immutable): fully vectorized GPU rates range from 4.0~GHz to 56.9~GHz for laptop/gaming GPUs (GeForce GTX) to high-end supercomputing GPUs (Tesla P100).
 
-\begin{table}
-\caption{\label{gpu-results} GHz rates}
+\begin{table}[t]
+\caption{\label{gpu-results} Data throughput rates in GHz (billions of 32-bit floating point values per second) for various GPUs and architectures. The first line is a data copy that does not involve the GPU, for comparison with the ones that do. ``Unified'' memory (also known as ``pinned'') are pointers that can be accessed by both host (CPU) and device (GPU), but with a price in performance, as we see below. ``Global'' memory is bound to the GPU and requires an explicit copy.}
 
 \begin{center}
 \begin{tabular}{l c c c c c c}
-                  &  GeForce & GRID     & Tesla  & Tesla  & Tesla       & Tesla     \\
-                  &  GTX     & K520     & K40c   & K20Xm  & K20m        & P100-SXM2 \\
-                  &  660M    & (AWS)    & (CERN) & (CERN) & (Princeton) & (CERN)    \\
-Data transfers:   &          &          &        &        &             &           \\\hline
-DRAM to {\it CPU} & 1.804 1.54557 0.77261 0.773144 0.8192 3.45566       
-DRAM to GPU       & 1.69467 0.970904 0.816211 0.507478 0.867488 3.3825  
-GPU to DRAM       & 1.69467 0.984867 0.491712 0.759666 0.514087 1.84568 
-CPU write unified & 2.3141 1.53427 0.8194 0.495927 0.87177 3.56583      
-CPU read unified  & 2.3141 1.50065 0.477507 0.4641 0.498284 2.05477     
-within GPU        & 6.99051 15.183 23.6299 23.6299 18.8508 56.8719      
-                  &          &          &        &        &             &           \\
-Calculations:     &          &          &        &        &             &           \\\hline
-in-place global   & 3.99458 13.6957 21.3722 21.1034 16.8615 56.8719
-immutable global  & 4.14252 14.2785 21.5093 21.237 16.9467 56.8719 
-in-place unified  & 2.62144 2.22362 2.57715 1.61708 1.43579 7.09396
-immutable unified & 2.91778 2.39333 2.93822 2.88021 1.54486 8.32616
+                  &  GeForce & GRID     & Tesla       & Tesla  & Tesla  & Tesla     \\
+                  &  GTX     & K520     & K20m        & K40c   & K20Xm  & P100-SXM2 \\
+                  &  660M    & (AWS)    & (Princeton) & (CERN) & (CERN) & (CERN)    \\
+\underline{Data transfers:}   &          &          &             &        &        &           \\
+DRAM to {\it CPU} & 1.8      & 1.5      & 0.82        & 0.77   & 0.77   & 3.5       \\       
+                  &          &          &             &        &        &           \\
+DRAM to GPU       & 1.7      & 1.0      & 0.87        & 0.82   & 0.51   & 3.4       \\  
+GPU to DRAM       & 1.7      & 1.0      & 0.51        & 0.49   & 0.76   & 1.8       \\ 
+CPU write unified & 2.3      & 1.5      & 0.87        & 0.82   & 0.50   & 3.6       \\      
+CPU read unified  & 2.3      & 1.5      & 0.50        & 0.48   & 0.46   & 2.1       \\     
+within GPU        & 7.0      & 15.2     & 18.9        & 23.6   & 23.6   & 56.9      \\      
+                  &          &          &             &        &        &           \\
+\underline{Calculations:}     &          &          &             &        &        &           \\
+in-place global   & 4.0      & 13.7     & 16.9        & 21.4   & 21.1   & 56.9      \\
+immutable global  & 4.1      & 14.3     & 16.9        & 21.5   & 21.2   & 56.9      \\ 
+in-place unified  & 2.6      & 2.2      & 1.4         & 2.6    & 1.6    & 7.1       \\
+immutable unified & 2.9      & 2.4      & 1.5         & 2.9    & 2.9    & 8.3       \\
 \end{tabular}
 \end{center}
 \end{table}
 
-
-
 %% milliseconds for 1 GB, but times (ms) are underestimated by a factor of 8
-%% DRAM to {\it CPU} & 18.6     &    21.71 &  43.43 &  43.40 &       40.96 &      9.71 \\
-%% DRAM to GPU       & 19.8     &    34.56 &  41.11 &  66.12 &       38.68 &      9.92 \\
-%% GPU to DRAM       & 19.8     &    34.07 &  68.24 &  44.17 &       65.27 &     18.18 \\
-%% CPU write unified & 14.5     &    21.87 &  40.95 &  67.66 &       38.49 &      9.41 \\
-%% CPU read unified  & 14.5     &    22.36 &  70.27 &  72.30 &       67.34 &     16.33 \\
-%% within GPU        &  4.8     &     2.21 &   1.42 &   1.42 &        1.78 &      0.59 \\
-%%                   &          &          &        &        &             &           \\
-%% Calculations:     &          &          &        &        &             &           \\\hline
-%% in-place global   &  8.4     &     2.45 &   1.57 &   1.59 &        1.99 &      0.59 \\
-%% immutable global  &  8.1     &     2.35 &   1.56 &   1.58 &        1.98 &      0.59 \\
-%% in-place unified  & 12.8     &    15.09 &  13.02 &  20.75 &       23.37 &      4.73 \\
-%% immutable unified & 11.5     &    14.02 &  11.42 &  11.65 &       21.72 &      4.03 \\
+%% DRAM to {\it CPU} & 18.6     &    21.71 &       40.96 &  43.43 &  43.40 &      9.71 \\
+%% DRAM to GPU       & 19.8     &    34.56 &       38.68 &  41.11 &  66.12 &      9.92 \\
+%% GPU to DRAM       & 19.8     &    34.07 &       65.27 &  68.24 &  44.17 &     18.18 \\
+%% CPU write unified & 14.5     &    21.87 &       38.49 &  40.95 &  67.66 &      9.41 \\
+%% CPU read unified  & 14.5     &    22.36 &       67.34 &  70.27 &  72.30 &     16.33 \\
+%% within GPU        &  4.8     &     2.21 &        1.78 &   1.42 &   1.42 &      0.59 \\
+%%                   &          &          &             &        &        &           \\
+%% Calculations:     &          &          &             &        &        &           \\\hline
+%% in-place global   &  8.4     &     2.45 &        1.99 &   1.57 &   1.59 &      0.59 \\
+%% immutable global  &  8.1     &     2.35 &        1.98 &   1.56 &   1.58 &      0.59 \\
+%% in-place unified  & 12.8     &    15.09 &       23.37 &  13.02 &  20.75 &      4.73 \\
+%% immutable unified & 11.5     &    14.02 &       21.72 &  11.42 &  11.65 &      4.03 \\
 
+%% awk '{print 1e-9/(8*$1/1000/1024/1024/1024*4), 1e-9/(8*$2/1000/1024/1024/1024*4), 1e-9/(8*$3/1000/1024/1024/1024*4), 1e-9/(8*$4/1000/1024/1024/1024*4), 1e-9/(8*$5/1000/1024/1024/1024*4), 1e-9/(8*$6/1000/1024/1024/1024*4)}'
 
+Another thing to notice is that memory-to-CPU and memory-to-GPU bandwidths are similar to each other for most architectures: the biggest deviation is 60\% slower for copying to the GPU. In designing software, we can consider the GPU to be just as ``distant'' from memory as the CPU.
 
+Once the data are on the GPU (as ``global'' memory, not ``unified''), calculations are much faster. In particular, copying data within the GPU has approximately the same cost as a calculation. The following hierarchy emerges:
+\begin{center}
+DRAM to CPU $\sim$ to GPU $\ll$ GPU global memory to calculation $\sim$ to copy.
+\end{center}
+For designing software, this (a) that there's no memory bandwidth advantage to performing operations in-place, rather than immutably, and (b) that the GPU is advantageous only if several operations can be performed before copying the data back to normal memory. We may even consider keeping an input data cache in GPU global memory as well as DRAM.
 
+Finally, it's worth pointing out that the ``unified'' memory model provided by modern CUDA hides the cost of the transfer. In the unified model, host (CPU) code and device (GPU) code use the same pointers without an explicit copy, but GPU calculations on unified memory run at a much lower rate than explicit global memory. Presumably, it is copying on demand.
 
-Another thing worth knowing is that data copies {\it within} the GPU are much faster than copies to or from the GPU.
+(GPU ``shared'' memory is faster than global, but much too small for our datasets.)
 
+Finally, this comparision of single-threaded CPU rates (0.26~GHz) to GPU rates (4--57~GHz) is unfair because modern architectures support multiple CPU cores, often many more (8--64) than the number of GPUs (1--4).
 
+Given the embarrassingly parallel nature of the problem, we would naively expect perfect scaling with the number of worker threads up to the number of cores. On conventional and even NUMA architectures, however, we find a limit of about 2~GHz. Since these processes do not interact, we conjectured that the limiting factor was contention on the memory bus, since all workers are doing little more than requesting data. Even in NUMA architectures, half of the CPUs share a single memory bus.
 
+To prove this conjecture, we obtained access to a Knight's Landing (KNL) architecture at Princeton. KNL has one feature in common with GPUs: small groups of CPU cores have a local pool of memory called MCDRAM, which is a rough equivalent of a GPU's global memory (in size, granularity, and distance from the processing unit). If the 2~GHz scaling limit is due to memory bus contention, moving data to a KNL's MCDRAM would reduce that contention and allow higher scaling.
 
+Figure~\ref{knl-scaling} shows that the conjecture was right: switching from a conventional architecture to KNL does not, by itself, break the 2~GHz limit, but allocating memory on the MCDRAM does. In fact, scaling on a single KNL machine reaches 8~GHz with 128 cores, twice the number of physical cores (though it drops precipitously beyond that).
 
+\begin{figure}[t]
+\begin{center}
+\includegraphics[width=0.8\linewidth]{knl-scaling.pdf}
+\end{center}
 
-%% 	GRID K520 (Amazon)	Tesla K40c (CERN)	Tesla K20Xm (CERN)	Tesla K20m (Princeton)	Tesla P100-SXM2 (CERN)	Ratio K20m/P100
-%% Data transfers (ms for 1 GB):						
-%% Host-to-host copy (no GPU)          	
-%% Host-to-device copy             	
-%% Device-to-host copy            	
-%% Host write to unified memory     	
-%% Host read from unified memory	
-%% Device-to-device copy one GPU)	
-%% Calculations (ms for 1 GB):						
-%% In-place operation - x, float32)	
-%% Immutable operatio - x, float32)	
-%% In-place operation on unified memory	
-%% Immutable on unified memory    	
+\caption{\label{knl-scaling} Memory bandwidth-limited scaling on a conventional 32-core machine, a Knight's Landing machine with input data in globally shared DRAM and local MCDRAM, respectively.}
+\end{figure}
 
+All of these studies point to the same general conclusion, that novel hardware like GPUs and KNL are advantageous for our project not because of superior computational ability but because they have local stores of memory, close to the computing elements. Our gains in throughput exclusively depend on how well we exploit the device memory.
 
-%% Device at 0:
-%%     name: 
-%%     totalGlobalMem: 1.95135 GB
-%%     sharedMemPerBlock: 48 kB
-%%     regsPerBlock: 65536
-%%     warpSize: 32
-%%     memPitch: 2 GB
-%%     maxThreadsPerBlock: 1024
-%%     maxThreadsDim: 1024 1024 64 
-%%     maxGridSize: 2147483647 65535 65535 
-%%     totalConstMem: 64 kB
-%%     version: 3.0
-%%     clockRate: 950 MHz
-%%     textureAlignment: 512
-%%     deviceOverlap: true
-%%     multiProcessorCount: 2
-%%     kernelExecTimeoutEnabled: false
-%%     integrated: false
-%%     canMapHostMemory: true
-%%     computeMode: cudaComputeModeDefault
-%%     concurrentKernels: true
-%%     ECCEnabled: false
-%%     pciBusID: 1
-%%     pciDeviceID: 0
-%%     tccDriver: false
+While the computational problem Femtocode poses is embarrassingly parallel, not all parts of it are vectorizable. To perform the equivalent of object oriented programming on data represented as flat arrays, some operations need to correlate values in arrays of different lengths. These operations, known in Femtocode as ``explode'' and ``combine'', are not a good match to the GPU's vectorized programming model. Explode operations must interpret an array sequentially from start to end, and combine operations must either be sequential or require $\log_2 N$ vectorized passes over a dataset of $N$ elements. These operations are best suited for a sequential processor like KNL or a conventional CPU, with GPUs used only for the ``flat'' operations that correlate equal-length arrays element by element.
 
-%% 1 GB host -> host: 39.125 ms
-%% 1 GB host -> host: 19.982 ms
-%% 1 GB host -> host: 19.21 ms
-%% 1 GB host -> host: 18.724 ms
-%% 1 GB host -> host: 18.611 ms
-%% check 0.178395 0.399677 0.166599
-%% 1 GB host -> device: 20.019 ms
-%% 1 GB host -> device: 19.91 ms
-%% 1 GB host -> device: 19.84 ms
-%% 1 GB host -> device: 19.89 ms
-%% 1 GB host -> device: 19.882 ms
-%% 1 GB device in-place operation: 8.413 ms
-%% 1 GB device in-place operation: 8.404 ms
-%% 1 GB device in-place operation: 8.403 ms
-%% 1 GB device in-place operation: 8.405 ms
-%% 1 GB device in-place operation: 8.407 ms
-%% 1 GB device immutable operation: 7.993 ms
-%% 1 GB device immutable operation: 8.064 ms
-%% 1 GB device immutable operation: 8.102 ms
-%% 1 GB device immutable operation: 8.074 ms
-%% 1 GB device immutable operation: 8.164 ms
-%% 1 GB device const immutable operation: 8.138 ms
-%% 1 GB device const immutable operation: 8.157 ms
-%% 1 GB device const immutable operation: 8.14 ms
-%% 1 GB device const immutable operation: 8.108 ms
-%% 1 GB device const immutable operation: 8.068 ms
-%% 1 GB device -> host: 19.639 ms
-%% 1 GB device -> host: 20.215 ms
-%% 1 GB device -> host: 19.942 ms
-%% 1 GB device -> host: 19.895 ms
-%% 1 GB device -> host: 19.883 ms
-%% check 0.821605 0.600323 0.833401
-%% 1 GB host -> pinned: 14.521 ms
-%% 1 GB host -> pinned: 15.759 ms
-%% 1 GB host -> pinned: 14.868 ms
-%% 1 GB host -> pinned: 14.444 ms
-%% 1 GB host -> pinned: 14.459 ms
-%% 1 GB device in-place operation: 13.111 ms
-%% 1 GB device in-place operation: 12.858 ms
-%% 1 GB device in-place operation: 12.82 ms
-%% 1 GB device in-place operation: 12.895 ms
-%% 1 GB device in-place operation: 13.192 ms
-%% 1 GB device immutable operation: 11.851 ms
-%% 1 GB device immutable operation: 12.297 ms
-%% 1 GB device immutable operation: 11.521 ms
-%% 1 GB device immutable operation: 11.57 ms
-%% 1 GB device immutable operation: 11.509 ms
-%% 1 GB device const immutable operation: 11.5 ms
-%% 1 GB device const immutable operation: 12.468 ms
-%% 1 GB device const immutable operation: 11.549 ms
-%% 1 GB device const immutable operation: 12.297 ms
-%% 1 GB device const immutable operation: 12.189 ms
-%% 1 GB pinned -> host: 14.434 ms
-%% 1 GB pinned -> host: 15.915 ms
-%% 1 GB pinned -> host: 15.032 ms
-%% 1 GB pinned -> host: 14.492 ms
-%% 1 GB pinned -> host: 14.516 ms
-%% check 0.178395 0.399677 0.166599
-%% 1 GB device -> device: 5.058 ms
-%% 1 GB device -> device: 4.831 ms
-%% 1 GB device -> device: 4.829 ms
-%% 1 GB device -> device: 4.829 ms
-%% 1 GB device -> device: 4.831 ms
+Finally, memory bus contention can also be defeated by purchasing a larger number of fewer-core machines. This is another way to make memory more local: by physically separating them on the rack. It is an open question how the price of four 16-core servers compares to the price of one 64-core KNL, for instance. However, this question is not a blocker for writing software.
 
+\subsection*{Conclusions}
 
+In this section, we described several quantitative analyses we performed as part of designing software for data analysis applications. We confirmed the disk $\ll$ memory $\ll$ processing hierarchy, with some useful details.
 
+C++ ROOT remains the fastest way to read ROOT files, though it depends on how this library is used. In our application of extracting only one or a few attributes of each particle for plotting, we can pull data from the file at a rate of about a MHz per thread. Java is four times slower, but it brings the benefit of providing access to Big Data and machine learning tools like Apache Spark.
+
+Using (one might say ``misusing'') an experiment's framework like CMSSW for the purpose of extracting only one attribute per particle is three orders of magnitude slower: about a kHz. This is primarily because CMSSW loads all attributes per particle (they are needed for the usual application of event reconstruction) but partly because CMSSW creates and destroys C++ objects in non-contiguous memory for the convenience of the user.
+
+The MHz rate of {\tt TTree::Draw} and the Femtocode ROOT reader is nearly identical to the rate of reading numbers from a Numpy file, which has minimal overhead. Therefore, this MHz rate is probably close to the maximum possible.
+
+If the input data are in a memory cache, however, rates of a quarter GHz per thread are possible (almost three orders of magnitude faster). Adding non-interacting threads allows us to scale up to 2~GHz before running into memory bandwidth limits of a conventional memory bus. However, using local memory attached to a KNL or GPU device breaks through this limit, allowing up to 8~GHz on a KNL and 57~GHz on a high-end GPU.
+
+Amusingly, these event-processing rates even exceed the collision rate in the LHC, though the similarity is coincidental. Collision events are highly filtered, and we need a system to process years of collected data in seconds if it is to serve for real-time analysis.
 
 \end{document}
