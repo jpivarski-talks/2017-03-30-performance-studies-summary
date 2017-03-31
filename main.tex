@@ -110,7 +110,7 @@ Plotting problems are embarrassingly parallel and can be horizontally scaled to 
 The GPU results are summarized in Table~\ref{gpu-results}. For comparison, the single-threaded CPU rates are 0.39~GHz (in-place) and 0.26~GHz (immutable) while fully vectorized GPU rates range from 4.0~GHz to 56.9~GHz for laptop/gaming GPUs (GeForce GTX) to high-end supercomputing GPUs (Tesla P100).
 
 \begin{table}[t]
-\caption{\label{gpu-results} Data throughput rates in GHz (billions of 32-bit floating point values per second) for various GPUs and architectures. The first line is a data copy that does not involve the GPU, for comparison with the ones that do. ``Unified'' memory (also known as ``pinned'') are pointers that can be accessed by both host (CPU) and device (GPU), but with a price in performance, as we see below. ``Global'' memory is bound to the GPU and requires an explicit copy.}
+\caption{\label{gpu-results} Data throughput rates in GHz (billions of 32-bit floating point values per second) for various GPUs and architectures. The first line is a data copy that does not involve the GPU, for comparison with the ones that do. ``Unified'' memory (also known as ``pinned'') are pointers that can be accessed by both host (CPU) and device (GPU), but with a price in performance, as we see below. ``Global'' memory is bound to the GPU and requires an explicit copy-to-device.}
 
 \begin{center}
 \begin{tabular}{l c c c c c c}
