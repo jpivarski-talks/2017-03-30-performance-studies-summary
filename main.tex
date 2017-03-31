@@ -44,7 +44,7 @@ Both C++ and Java readers are deserializing and decompressing (deflate) the same
 
 In the plot, we see that standard C++ ROOT is consistently faster than root4j. We also see that, unlike C++, root4j starts slow and accelerates. We see the HotSpot optimization phase as a spike (temporary slow-down) at the beginning of reading, a spike when opening each file, and a single spike in the middle of one of the files. Spikes like these appear at different times in different runs, so they are likely garbage collector pauses.
 
-However, the asymptotic speed of root4j, which is all that matters for large files and large datasets, is about four times slower than C++. Depending on the user's intended purpose, this cost may be worthwhile, since it opens direct access to all the ``big data'' and machine learning tools that have been developed for the Java platform.
+However, the asymptotic speed of root4j, which is all that matters for large files and large datasets, is about 4 times slower than C++. Depending on the user's intended purpose, this cost may be worthwhile, since it opens direct access to all the ``big data'' and machine learning tools that have been developed for the Java platform.
 
 More recent performance benchmarks are in development, using Spark's built-in performance counters\footnote{\href{https://github.com/diana-hep/spark-root/blob/master/md/PerformanceBenchmarksPublicDS.md}{\tt https://github.com/diana-hep/spark-root/blob/master/md/PerformanceBenchmarksPublicDS.md}}.
 
@@ -189,7 +189,7 @@ Finally, memory bus contention can also be defeated by purchasing a large number
 
 In this section, we described several quantitative analyses performed as part of designing software for data analysis applications. We confirmed the disk access $\ll$ memory access $\ll$ processing hierarchy, with some useful details.
 
-C++ ROOT remains the fastest way to read ROOT files, though it depends on how this library is used. In our application of extracting only one or a few attributes of each particle for plotting, we can pull data from the file at a rate of about a MHz per thread. Java is four times slower, but it brings the benefit of providing access to ``big data'' and machine learning tools like Apache Spark.
+C++ ROOT remains the fastest way to read ROOT files, though it depends on how this library is used. In our application of extracting only one or a few attributes of each particle for plotting, we can pull data from the file at a rate of about a MHz per thread. Java is 4 times slower, but it brings the benefit of providing access to ``big data'' and machine learning tools like Apache Spark.
 
 Using (one might say ``misusing'') a collaboration's framework like CMSSW for the purpose of extracting only one attribute per particle is three orders of magnitude slower: about a kHz. This is primarily because CMSSW loads all attributes per particle (they are needed for the usual application of event reconstruction) but partly because CMSSW creates and destroys C++ objects in non-contiguous memory for the convenience of the user.
 
