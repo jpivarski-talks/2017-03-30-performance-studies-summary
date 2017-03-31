@@ -38,7 +38,7 @@ Figure~\ref{root4j_reading_tracks} shows the reading rate as nanoseconds per tra
 \caption{\label{root4j_reading_tracks} Rate of reading track $\chi^2$ in root4j and C++ ROOT as a function of time. (Samples on the horizontal axis are every 100,000 tracks and ``MB'' refers to {\it decompressed} data.)}
 \end{figure}
 
-These files were also pre-read before measuring any data, so that they would be in Linux's virtual memory, effectively removing physical disk access from the measurement and ensuring that neither software product is unfairly discounted because by this large bottleneck.
+These files were also pre-read before measuring any data, so that they would be in Linux's virtual memory, effectively removing physical disk access from the measurement and ensuring that neither software product is unfairly discounted by this large bottleneck, simply due to being run first.
 
 Both C++ and Java readers are deserializing and decompressing (deflate) the same bytes. The C++ ROOT version is 6.08/04 (pre-built binary for Ubuntu Linux). The root4j version is 0.1-pre2; spark-root and Spark were {\it not} involved in this test (which would complicate matters, due to caching). Both C++ and Java were executed in a single process, single thread.
 
