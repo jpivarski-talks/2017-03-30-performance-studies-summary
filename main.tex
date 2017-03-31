@@ -157,7 +157,7 @@ Once the data are on the GPU (as ``global'' memory, not ``unified''), calculatio
 \begin{center}
 DRAM to CPU $\sim$ to GPU $\ll$ GPU global memory to calculation $\sim$ to copy.
 \end{center}
-For designing software, this (a) that there's no memory bandwidth advantage to performing operations in-place, rather than immutably, and (b) that the GPU is advantageous only if several operations can be performed before copying the data back to normal memory. We may even consider keeping an input data cache in GPU global memory as well as DRAM. That cache could be implemented as a circular buffer that copies the most recently used data to the head of the buffer, since data copies within the GPU are essentially free.
+For designing software, this (a) that there's no memory bandwidth advantage to performing operations in-place, rather than immutably, and (b) that the GPU is advantageous only if several operations can be performed before copying the data back to normal memory. We may even consider keeping an input data cache in GPU global memory as well as DRAM. That cache could be implemented as a circular buffer that copies the most recently used data to the head of the buffer with every iteration, since data copies within the GPU are essentially free.
 
 Finally, it's worth pointing out that the ``unified'' memory model provided by modern CUDA disguises but does not eliminate the cost of the transfer. In the unified model, host (CPU) code and device (GPU) code use the same pointers without an explicit copy, but GPU calculations on unified memory run at a much lower rate than explicit global memory. Presumably, it is copying on demand.
 
