@@ -96,7 +96,7 @@ The throughput from DRAM to CPU back to DRAM is highly affected by compiler opti
 The plotting problem is embarrassingly parallel and can be horizontally scaled to a nearly arbitrary degree, dividing this 13~seconds by a factor of $N$. However, we also wanted to see if specialized hardware could solve the problem. We performed the same simple operation on several different GPUs and one Knight's Landing (KNL) chip. The GPU results are summarized in Table~\ref{gpu-results}: some GPU models have faster memory, some have faster computation, and others are embedded in an architecture with a faster connection to main memory. However, on most architectures, the time required to copy data from DRAM to the GPU was equal to the time required to copy data from DRAM to the CPU: the GPU could be regarded as just as ``distant'' from main memory as the CPU. (Biggest deviation: 60\% slower for GPU.)
 
 \begin{table}
-\caption{\label{gpu-results} }
+\caption{\label{gpu-results} GHz rates}
 
 \begin{center}
 \begin{tabular}{l c c c c c c}
@@ -104,21 +104,41 @@ The plotting problem is embarrassingly parallel and can be horizontally scaled t
                   &  GTX     & K520     & K40c   & K20Xm  & K20m        & P100-SXM2 \\
                   &  660M    & (AWS)    & (CERN) & (CERN) & (Princeton) & (CERN)    \\
 Data transfers:   &          &          &        &        &             &           \\\hline
-DRAM to {\it CPU} & 18.6     &    21.71 &  43.43 &  43.40 &       40.96 &      9.71 \\
-DRAM to GPU       & 19.8     &    34.56 &  41.11 &  66.12 &       38.68 &      9.92 \\
-GPU to DRAM       & 19.8     &    34.07 &  68.24 &  44.17 &       65.27 &     18.18 \\
-CPU write unified & 14.5     &    21.87 &  40.95 &  67.66 &       38.49 &      9.41 \\
-CPU read unified  & 14.5     &    22.36 &  70.27 &  72.30 &       67.34 &     16.33 \\
-within GPU        &  4.8     &     2.21 &   1.42 &   1.42 &        1.78 &      0.59 \\
+DRAM to {\it CPU} & 1.804 1.54557 0.77261 0.773144 0.8192 3.45566       
+DRAM to GPU       & 1.69467 0.970904 0.816211 0.507478 0.867488 3.3825  
+GPU to DRAM       & 1.69467 0.984867 0.491712 0.759666 0.514087 1.84568 
+CPU write unified & 2.3141 1.53427 0.8194 0.495927 0.87177 3.56583      
+CPU read unified  & 2.3141 1.50065 0.477507 0.4641 0.498284 2.05477     
+within GPU        & 6.99051 15.183 23.6299 23.6299 18.8508 56.8719      
                   &          &          &        &        &             &           \\
 Calculations:     &          &          &        &        &             &           \\\hline
-in-place global   &  8.4     &     2.45 &   1.57 &   1.59 &        1.99 &      0.59 \\
-immutable global  &  8.1     &     2.35 &   1.56 &   1.58 &        1.98 &      0.59 \\
-in-place unified  & 12.8     &    15.09 &  13.02 &  20.75 &       23.37 &      4.73 \\
-immutable unified & 11.5     &    14.02 &  11.42 &  11.65 &       21.72 &      4.03 \\
+in-place global   & 3.99458 13.6957 21.3722 21.1034 16.8615 56.8719
+immutable global  & 4.14252 14.2785 21.5093 21.237 16.9467 56.8719 
+in-place unified  & 2.62144 2.22362 2.57715 1.61708 1.43579 7.09396
+immutable unified & 2.91778 2.39333 2.93822 2.88021 1.54486 8.32616
 \end{tabular}
 \end{center}
 \end{table}
+
+
+
+%% milliseconds for 1 GB
+%% DRAM to {\it CPU} & 18.6     &    21.71 &  43.43 &  43.40 &       40.96 &      9.71 \\
+%% DRAM to GPU       & 19.8     &    34.56 &  41.11 &  66.12 &       38.68 &      9.92 \\
+%% GPU to DRAM       & 19.8     &    34.07 &  68.24 &  44.17 &       65.27 &     18.18 \\
+%% CPU write unified & 14.5     &    21.87 &  40.95 &  67.66 &       38.49 &      9.41 \\
+%% CPU read unified  & 14.5     &    22.36 &  70.27 &  72.30 &       67.34 &     16.33 \\
+%% within GPU        &  4.8     &     2.21 &   1.42 &   1.42 &        1.78 &      0.59 \\
+%%                   &          &          &        &        &             &           \\
+%% Calculations:     &          &          &        &        &             &           \\\hline
+%% in-place global   &  8.4     &     2.45 &   1.57 &   1.59 &        1.99 &      0.59 \\
+%% immutable global  &  8.1     &     2.35 &   1.56 &   1.58 &        1.98 &      0.59 \\
+%% in-place unified  & 12.8     &    15.09 &  13.02 &  20.75 &       23.37 &      4.73 \\
+%% immutable unified & 11.5     &    14.02 &  11.42 &  11.65 &       21.72 &      4.03 \\
+
+
+
+
 
 Another thing worth knowing is that data copies {\it within} the GPU are much faster than copies to or from the GPU.
 
